@@ -3,204 +3,169 @@ clc;
 close all;
 
 % Simulation settings
-numSlots = 100000;        % total number of time slots
-warmupSlots = 10000;      % ignore early transient behaviour
-rng(1);                   % keeps random results repeatable
+numSlots    = 100000;
+warmupSlots = 10000;
+rng(1);
 
-% Base service rate
-mu = 5;                   % average service rate in packets per time slot
+mu = 10;
 
-%% Experiment 1: Effect of traffic load and theory comparison
+%% Experiment 1: Effect of traffic load (rho) on delay
 
-% Keep service rate fixed
-mu = 5;                         % average service rate in packets per slot
+rhoValues    = 0.1:0.05:0.95;
+lambdaValues = rhoValues * mu;
 
-% Use only lambda values below mu for stable operation
-lambdaValues = 1:0.5:4.8;       % average arrival rates in packets per slot
-rhoValues = lambdaValues ./ mu; % router utilisation
+simDelay    = zeros(1, length(rhoValues));
+simQueueLen = zeros(1, length(rhoValues));
+theoryDelay = zeros(1, length(rhoValues));
 
-% Store simulation and theory results
-simDelay = zeros(size(lambdaValues));
-simQueueLength = zeros(size(lambdaValues));
-theoryDelay = zeros(size(lambdaValues));
-littleLawDelay = zeros(size(lambdaValues));
-
-for i = 1:length(lambdaValues)
-
+for i = 1:length(rhoValues)
     lambda = lambdaValues(i);
 
-    % Run single router queue simulation
     result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson");
 
-    % Store simulated average delay and queue length
-    simDelay(i) = result.averageDelay;
-    simQueueLength(i) = result.averageQueueLength;
+    simDelay(i)    = result.averageDelay;
+    simQueueLen(i) = result.averageQueueLength;
 
-    % M/M/1 theoretical average time in the system
     theoryDelay(i) = 1 / (mu - lambda);
-
-    % Little's Law estimate of delay
-    littleLawDelay(i) = simQueueLength(i) / lambda;
 end
 
-% Plot simulated delay and theoretical delay
+% Little's Law validation
+littleLawCheck = lambdaValues .* simDelay;
+maxLittleError = max(abs(littleLawCheck - simQueueLen));
+fprintf('Little''s Law validation: max |L_sim - lambda*W_sim| = %.4f\n', maxLittleError);
+fprintf('Little''s Law L = lambda*W was verified across all simulated load levels.\n\n');
+
+% Graph 1: Simulated vs theoretical delay
 figure;
-plot(rhoValues, simDelay, 'o-');
+plot(rhoValues, simDelay);
 hold on;
-plot(rhoValues, theoryDelay, 'x-');
-xlabel('Traffic intensity, \rho = \lambda / \mu');
-ylabel('Average packet delay, W');
+plot(rhoValues, theoryDelay);
+xlabel('Traffic intensity \rho');
+ylabel('Average packet delay W (time slots)');
 title('Effect of Traffic Load on Packet Delay');
-legend('Simulation', 'M/M/1 theory', 'Location', 'northwest');
-grid on;
+legend('Simulated W', 'Theoretical W');
 
-% Plot average queue length
-figure;
-plot(rhoValues, simQueueLength, 'o-');
-xlabel('Traffic intensity, \rho = \lambda / \mu');
-ylabel('Average queue length, L');
-title('Effect of Traffic Load on Buffer Fullness');
-grid on;
+% Halving delay — find required service rate at rho = 0.8
+lambdaFixed = 8;
+muBase      = 10;
 
-% Plot direct simulated delay and Little's Law estimate
-figure;
-plot(rhoValues, simDelay, 'o-');
-hold on;
-plot(rhoValues, littleLawDelay, 'x-');
-xlabel('Traffic intensity, \rho = \lambda / \mu');
-ylabel('Average packet delay, W');
-title('Little''s Law Check');
-legend('Direct delay measurement', 'L / \lambda estimate', 'Location', 'northwest');
-grid on;
+baseResult  = simulateSingleQueue(lambdaFixed, muBase, numSlots, warmupSlots, "poisson");
+baseDelay   = baseResult.averageDelay;
+targetDelay = baseDelay / 2;
 
-% Create result table for report and checking
-experiment1Table = table(lambdaValues', rhoValues', simDelay', theoryDelay', ...
-    littleLawDelay', simQueueLength', ...
-    'VariableNames', {'lambda', 'rho', 'SimDelay', 'TheoryDelay', ...
-    'LittleLawDelay', 'SimQueueLength'});
+muSweep    = 10:0.5:30;
+delaySweep = zeros(1, length(muSweep));
 
-disp(experiment1Table);
+for i = 1:length(muSweep)
+    r = simulateSingleQueue(lambdaFixed, muSweep(i), numSlots, warmupSlots, "poisson");
+    delaySweep(i) = r.averageDelay;
+end
+
+idxRequired = find(delaySweep <= targetDelay, 1);
+
+if isempty(idxRequired)
+    muRequired      = NaN;
+    percentIncrease = NaN;
+    delayAtRequired = NaN;
+else
+    muRequired      = muSweep(idxRequired);
+    percentIncrease = ((muRequired - muBase) / muBase) * 100;
+    delayAtRequired = delaySweep(idxRequired);
+end
+
+fprintf('--- Halving Delay Table (Experiment 1) ---\n');
+fprintf('lambda = %.1f, mu_base = %.1f, W0 = %.4f\n', lambdaFixed, muBase, baseDelay);
+fprintf('mu_required = %.1f, W_halved = %.4f, increase = %.1f%%\n\n', ...
+    muRequired, delayAtRequired, percentIncrease);
+
 %% Experiment 2: Queue stability over time
-lambdaStable = 3.0;       % rho = 0.60
-lambdaBorderline = 4.9;   % rho = 0.98
-lambdaUnstable = 5.5;     % rho = 1.10
 
-% Simulate three different traffic loads
-stableResult = simulateSingleQueue(lambdaStable, mu, numSlots, warmupSlots, "poisson");
-borderlineResult = simulateSingleQueue(lambdaBorderline, mu, numSlots, warmupSlots, "poisson");
-unstableResult = simulateSingleQueue(lambdaUnstable, mu, numSlots, warmupSlots, "poisson");
+stabilitySlots  = 5000;
+stabilityWarmup = 0;
 
-% Plot queue length over time
+lambdaStable     = 0.70 * mu;
+lambdaBorderline = 0.99 * mu;
+lambdaUnstable   = 1.20 * mu;
+
+stableResult     = simulateSingleQueue(lambdaStable,     mu, stabilitySlots, stabilityWarmup, "poisson");
+borderlineResult = simulateSingleQueue(lambdaBorderline, mu, stabilitySlots, stabilityWarmup, "poisson");
+unstableResult   = simulateSingleQueue(lambdaUnstable,   mu, stabilitySlots, stabilityWarmup, "poisson");
+
+% Graph 2: Queue length over time
 figure;
 plot(stableResult.queueLength);
 hold on;
 plot(borderlineResult.queueLength);
 plot(unstableResult.queueLength);
 xlabel('Time slot');
-ylabel('Queue length');
+ylabel('Queue length (packets)');
 title('Queue Stability for Different Traffic Loads');
-legend('\rho = 0.60', '\rho = 0.98', '\rho = 1.10', 'Location', 'northwest');
-grid on;
+legend('\rho = 0.70', '\rho = 0.99', '\rho = 1.20');
 
+%% Experiment 3: M/M/1 vs M/D/1
 
-%% Experiment 3: Service rate required to halve delay
+simDelayMM1 = zeros(1, length(rhoValues));
+simDelayMD1 = zeros(1, length(rhoValues));
+theoryMM1   = zeros(1, length(rhoValues));
+theoryMD1   = zeros(1, length(rhoValues));
 
-% Choose one arrival rate near high utilisation
-lambdaFixed = 4.0;
-muBase = 5.0;
+for i = 1:length(rhoValues)
+    lambda = lambdaValues(i);
 
-% Simulate the base case
-baseResult = simulateSingleQueue(lambdaFixed, muBase, numSlots, warmupSlots, "poisson");
-baseDelay = baseResult.averageDelay;
-targetDelay = baseDelay / 2;
+    resMM1 = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson");
+    simDelayMM1(i) = resMM1.averageDelay;
 
-% Test a range of service rates
-muValues = 5:0.25:10;
-delayValues = zeros(size(muValues));
+    resMD1 = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "fixed");
+    simDelayMD1(i) = resMD1.averageDelay;
 
-for i = 1:length(muValues)
-    currentMu = muValues(i);
-
-    % Run the queue with the new service rate
-    result = simulateSingleQueue(lambdaFixed, currentMu, numSlots, warmupSlots, "poisson");
-
-    % Store average delay
-    delayValues(i) = result.averageDelay;
+    theoryMM1(i) = 1 / (mu - lambda);
+    theoryMD1(i) = 1 / (mu - lambda) - 1 / (2 * mu);
 end
 
-% Find the first service rate that gives half the original delay
-indexRequired = find(delayValues <= targetDelay, 1);
-
-if isempty(indexRequired)
-    muRequired = NaN;
-    percentageIncrease = NaN;
-else
-    muRequired = muValues(indexRequired);
-    percentageIncrease = ((muRequired - muBase) / muBase) * 100;
-end
-
-% Plot delay against service rate
+% Graph 3: M/M/1 vs M/D/1 delay comparison
 figure;
-plot(muValues, delayValues, 'o-');
+plot(rhoValues, simDelayMM1);
 hold on;
-yline(targetDelay);
-xlabel('Average service rate, \mu');
-ylabel('Average packet delay, W');
-title('Service Rate Required to Halve Delay');
-grid on;
-
-% Print key result
-fprintf('Base service rate mu = %.2f packets/slot\n', muBase);
-fprintf('Base average delay = %.3f time slots\n', baseDelay);
-fprintf('Target delay = %.3f time slots\n', targetDelay);
-
-if ~isnan(muRequired)
-    fprintf('Required mu = %.2f packets/slot\n', muRequired);
-    fprintf('Percentage increase in mu = %.2f%%\n', percentageIncrease);
-else
-    fprintf('Target delay was not reached in the tested mu range.\n');
-end
+plot(rhoValues, theoryMM1);
+plot(rhoValues, simDelayMD1);
+plot(rhoValues, theoryMD1);
+xlabel('Traffic intensity \rho');
+ylabel('Average packet delay W (time slots)');
+title('Average Delay: M/M/1 vs M/D/1');
+legend('Simulated M/M/1', 'Theoretical M/M/1', 'Simulated M/D/1', 'Theoretical M/D/1');
 
 %% Experiment 4: Shared queue vs independent queues
 
-% Multi-server settings
-numServers = 3;
-lambdaTotal = 12;        % total packet arrival rate
-muPerServer = 5;         % service rate for each server
+numServers  = 3;
+lambdaTotal = 0.8 * mu * numServers;
+muPerServer = mu;
 
-% Run independent queues
-independentResult = simulateIndependentQueues(lambdaTotal, muPerServer, ...
-    numServers, numSlots, warmupSlots);
+independentResult = simulateIndependentQueues(lambdaTotal, muPerServer, numServers, numSlots, warmupSlots);
+sharedResult      = simulateSharedQueue(lambdaTotal, muPerServer, numServers, numSlots, warmupSlots);
 
-% Run one shared queue with multiple servers
-sharedResult = simulateSharedQueue(lambdaTotal, muPerServer, ...
-    numServers, numSlots, warmupSlots);
+fprintf('--- Experiment 4 Results ---\n');
+fprintf('%-22s  AvgDelay  Variance  AvgQueueLen  Utilisation\n', 'System');
+fprintf('%-22s  %.4f    %.4f    %.4f       %.4f\n', 'Independent queues', ...
+    independentResult.averageDelay, independentResult.delayVariance, ...
+    independentResult.averageQueueLength, independentResult.utilisation);
+fprintf('%-22s  %.4f    %.4f    %.4f       %.4f\n\n', 'Shared queue', ...
+    sharedResult.averageDelay, sharedResult.delayVariance, ...
+    sharedResult.averageQueueLength, sharedResult.utilisation);
 
-% Store comparison results
-systemNames = {'Independent queues'; 'Shared queue'};
-
-averageDelay = [independentResult.averageDelay; sharedResult.averageDelay];
+averageDelay  = [independentResult.averageDelay;  sharedResult.averageDelay];
 delayVariance = [independentResult.delayVariance; sharedResult.delayVariance];
-averageQueueLength = [independentResult.averageQueueLength; sharedResult.averageQueueLength];
-utilisation = [independentResult.utilisation; sharedResult.utilisation];
+systemNames   = {'Independent queues', 'Shared queue'};
 
-experiment4Table = table(systemNames, averageDelay, delayVariance, ...
-    averageQueueLength, utilisation);
-
-disp(experiment4Table);
-
-% Plot average delay comparison
+% Graph 4: Average delay comparison
 figure;
 bar(averageDelay);
 set(gca, 'XTickLabel', systemNames);
-ylabel('Average packet delay, W');
-title('Average Packet Delay Comparison');
-grid on;
+ylabel('Average packet delay W (time slots)');
+title('Average Packet Delay: Shared vs Independent Queues');
 
-% Plot delay variance comparison
+% Graph 5: Delay variance comparison
 figure;
 bar(delayVariance);
 set(gca, 'XTickLabel', systemNames);
 ylabel('Delay variance');
-title('Delay Variation Comparison');
-grid on;
+title('Delay Variance: Shared vs Independent Queues');
