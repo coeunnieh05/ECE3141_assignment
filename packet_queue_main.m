@@ -11,7 +11,7 @@ mu = 10;
 
 %% Experiment 1: Effect of traffic load (rho) on delay
 
-rhoValues    = 0.1:0.05:0.95;
+rhoValues    = 0.2:0.05:0.9;
 lambdaValues = rhoValues * mu;
 
 simDelay    = zeros(1, length(rhoValues));
@@ -53,7 +53,7 @@ baseResult  = simulateSingleQueue(lambdaFixed, muBase, numSlots, warmupSlots, "p
 baseDelay   = baseResult.averageDelay;
 targetDelay = baseDelay / 2;
 
-muSweep    = 10:0.5:30;
+muSweep    = 15:0.5:25;
 delaySweep = zeros(1, length(muSweep));
 
 for i = 1:length(muSweep)
@@ -73,7 +73,7 @@ else
     delayAtRequired = delaySweep(idxRequired);
 end
 
-fprintf('--- Halving Delay Table (Experiment 1) ---\n');
+fprintf('Halving Delay Table (Experiment 1)\n');
 fprintf('lambda = %.1f, mu_base = %.1f, W0 = %.4f\n', lambdaFixed, muBase, baseDelay);
 fprintf('mu_required = %.1f, W_halved = %.4f, increase = %.1f%%\n\n', ...
     muRequired, delayAtRequired, percentIncrease);
