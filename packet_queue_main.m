@@ -79,7 +79,6 @@ fprintf('mu_required = %.1f, W_halved = %.4f, increase = %.1f%%\n\n', ...
     muRequired, delayAtRequired, percentIncrease);
 
 %% Experiment 2: Queue stability over time
-
 stabilitySlots  = 5000;
 stabilityWarmup = 0;
 
@@ -91,17 +90,30 @@ stableResult     = simulateSingleQueue(lambdaStable,     mu, stabilitySlots, sta
 borderlineResult = simulateSingleQueue(lambdaBorderline, mu, stabilitySlots, stabilityWarmup, "poisson");
 unstableResult   = simulateSingleQueue(lambdaUnstable,   mu, stabilitySlots, stabilityWarmup, "poisson");
 
-% Graph 2: Queue length over time
+% Graph 2: Queue length over time — dual panel
 figure;
-plot(stableResult.queueLength);
-hold on;
-plot(borderlineResult.queueLength);
-plot(unstableResult.queueLength);
+
+% Top panel: all three lines (big picture)
+subplot(2,1,1);
+plot(unstableResult.queueLength,   'r',                    'LineWidth', 1.2); hold on;
+plot(borderlineResult.queueLength, 'Color', [0.85 0.55 0], 'LineWidth', 1.2);
+plot(stableResult.queueLength,     'b',                    'LineWidth', 1.2);
 xlabel('Time slot');
 ylabel('Queue length (packets)');
-title('Queue Stability for Different Traffic Loads');
-legend('\rho = 0.70', '\rho = 0.99', '\rho = 1.20');
+title('Queue Stability for Different Traffic Loads — All Cases');
+legend('\rho = 1.20 (unstable)', '\rho = 0.99 (borderline)', '\rho = 0.70 (stable)', ...
+       'Location', 'northwest');
+xlim([0 stabilitySlots]);
 
+% Bottom panel: zoom in on stable + borderline only
+subplot(2,1,2);
+plot(borderlineResult.queueLength, 'Color', [0.85 0.55 0], 'LineWidth', 1.2); hold on;
+plot(stableResult.queueLength,     'b',                    'LineWidth', 1.2);
+xlabel('Time slot');
+ylabel('Queue length (packets)');
+title('Zoomed View: \rho = 0.70 (stable) and \rho = 0.99 (borderline)');
+legend('\rho = 0.99 (borderline)', '\rho = 0.70 (stable)', 'Location', 'northwest');
+xlim([0 stabilitySlots]);
 %% Experiment 3: M/M/1 vs M/D/1
 
 simDelayMM1 = zeros(1, length(rhoValues));
