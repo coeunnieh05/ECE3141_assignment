@@ -3,15 +3,15 @@ clc;
 close all;
 
 % Simulation settings
-numSlots    = 100000;
-warmupSlots = 10000;
+numSlots    = 25000;
+warmupSlots = 2500;
 rng(1);
 
 mu = 10;
 
 %% Experiment 1: Effect of traffic load (rho) on delay
 
-rhoValues    = 0.2:0.05:0.9;
+rhoValues    = 0.1:0.05:0.95;
 lambdaValues = rhoValues * mu;
 
 simDelay    = zeros(1, length(rhoValues));
