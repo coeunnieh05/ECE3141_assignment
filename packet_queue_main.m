@@ -53,7 +53,7 @@ baseResult  = simulateSingleQueue(lambdaFixed, muBase, numSlots, warmupSlots, "p
 baseDelay   = baseResult.averageDelay;
 targetDelay = baseDelay / 2;
 
-muSweep    = 15:0.5:25;
+muSweep = 10:0.5:20;
 delaySweep = zeros(1, length(muSweep));
 
 for i = 1:length(muSweep)
