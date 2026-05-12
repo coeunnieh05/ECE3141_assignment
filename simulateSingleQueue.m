@@ -39,7 +39,7 @@ function result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, service
         % Record delay for departed packets
         if numDepartures > 0
             departedArrivalTimes = arrivalTimes(1:numDepartures);
-            delaysThisSlot = t - departedArrivalTimes + 1;
+            delaysThisSlot = t - departedArrivalTimes;
 
             % Only record delay after warm-up period
             if t > warmupSlots

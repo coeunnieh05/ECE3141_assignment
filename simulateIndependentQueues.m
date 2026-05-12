@@ -35,7 +35,7 @@ function result = simulateIndependentQueues(lambdaTotal, muPerServer, numServers
 
                 % Get arrival times of departing packets
                 departedArrivalTimes = arrivalTimes{s}(1:numDepartures);
-                delaysThisSlot = t - departedArrivalTimes + 1;
+                delaysThisSlot = t - departedArrivalTimes;
 
                 % Record delay only after warm-up
                 if t > warmupSlots

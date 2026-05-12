@@ -30,7 +30,7 @@ function result = simulateSharedQueue(lambdaTotal, muPerServer, numServers, numS
 
             % Get arrival times of departing packets
             departedArrivalTimes = arrivalTimes(1:numDepartures);
-            delaysThisSlot = t - departedArrivalTimes + 1;
+            delaysThisSlot = t - departedArrivalTimes;
 
             % Record delay only after warm-up
             if t > warmupSlots

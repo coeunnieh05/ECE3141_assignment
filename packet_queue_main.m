@@ -45,7 +45,7 @@ ylabel('Average packet delay W (time slots)');
 title('Effect of Traffic Load on Packet Delay');
 legend('Simulated W', 'Theoretical W');
 
-% Halving delay — find required service rate at rho = 0.8
+%% Halving delay — find required service rate at rho = 0.8
 lambdaFixed = 8;
 muBase      = 10;
 
