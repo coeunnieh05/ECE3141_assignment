@@ -1,5 +1,5 @@
 % Single queue simulation function
-function result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, serviceMode)
+function result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, serviceMode, bufferSize)
 
     % Stores queue length at each time slot
     queueLength = zeros(1, numSlots);
@@ -14,13 +14,28 @@ function result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, service
     totalArrivals = 0;
     totalDepartures = 0;
 
+    % Stores packet dropped
+    droppedPackets = 0;
+
     for t = 1:numSlots
         % Generate number of new packets arriving in this time slot
         numArrivals = poissrnd(lambda);
         totalArrivals = totalArrivals + numArrivals;
         % Add arrival time for each new packet
         if numArrivals > 0
-            arrivalTimes = [arrivalTimes, t * ones(1, numArrivals)];
+            currentQueueSize = length(arrivalTimes);
+            availableSpace = bufferSize - currentQueueSize;
+            
+            % Cannot store in queue more than the available spaces 
+            acceptedArrivals = min(numArrivals, availableSpace);
+            
+            % Find how many packets dropped
+            droppedThisSlot = numArrivals - acceptedArrivals;
+            droppedPackets = droppedPackets + droppedThisSlot;
+
+            if acceptedArrivals > 0
+                arrivalTimes = [arrivalTimes, t * ones(1, acceptedArrivals)];
+            end
         end
 
         % Generate service capacity for this time slot
@@ -68,4 +83,6 @@ function result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, service
     result.averageQueueLength = averageQueueLength;
     result.totalArrivals = totalArrivals;
     result.totalDepartures = totalDepartures;
+    result.droppedPackets = droppedPackets;
+    result.lossProb = droppedPackets/totalArrivals;
 end

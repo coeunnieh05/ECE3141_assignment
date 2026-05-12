@@ -5,6 +5,7 @@ close all;
 % Simulation settings
 numSlots    = 25000;
 warmupSlots = 2500;
+bufferSize  = 1000;
 rng(1);
 
 mu = 10;
@@ -21,7 +22,7 @@ theoryDelay = zeros(1, length(rhoValues));
 for i = 1:length(rhoValues)
     lambda = lambdaValues(i);
 
-    result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson");
+    result = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson", bufferSize);
 
     simDelay(i)    = result.averageDelay;
     simQueueLen(i) = result.averageQueueLength;
@@ -49,7 +50,7 @@ legend('Simulated W', 'Theoretical W');
 lambdaFixed = 8;
 muBase      = 10;
 
-baseResult  = simulateSingleQueue(lambdaFixed, muBase, numSlots, warmupSlots, "poisson");
+baseResult  = simulateSingleQueue(lambdaFixed, muBase, numSlots, warmupSlots, "poisson", bufferSize);
 baseDelay   = baseResult.averageDelay;
 targetDelay = baseDelay / 2;
 
@@ -57,7 +58,7 @@ muSweep = 10:0.5:20;
 delaySweep = zeros(1, length(muSweep));
 
 for i = 1:length(muSweep)
-    r = simulateSingleQueue(lambdaFixed, muSweep(i), numSlots, warmupSlots, "poisson");
+    r = simulateSingleQueue(lambdaFixed, muSweep(i), numSlots, warmupSlots, "poisson", bufferSize);
     delaySweep(i) = r.averageDelay;
 end
 
@@ -86,9 +87,9 @@ lambdaStable     = 0.70 * mu;
 lambdaBorderline = 0.99 * mu;
 lambdaUnstable   = 1.20 * mu;
 
-stableResult     = simulateSingleQueue(lambdaStable,     mu, stabilitySlots, stabilityWarmup, "poisson");
-borderlineResult = simulateSingleQueue(lambdaBorderline, mu, stabilitySlots, stabilityWarmup, "poisson");
-unstableResult   = simulateSingleQueue(lambdaUnstable,   mu, stabilitySlots, stabilityWarmup, "poisson");
+stableResult     = simulateSingleQueue(lambdaStable,     mu, stabilitySlots, stabilityWarmup, "poisson", bufferSize);
+borderlineResult = simulateSingleQueue(lambdaBorderline, mu, stabilitySlots, stabilityWarmup, "poisson", bufferSize);
+unstableResult   = simulateSingleQueue(lambdaUnstable,   mu, stabilitySlots, stabilityWarmup, "poisson", bufferSize);
 
 % Graph 2: Queue length over time — dual panel
 figure;
@@ -124,10 +125,10 @@ theoryMD1   = zeros(1, length(rhoValues));
 for i = 1:length(rhoValues)
     lambda = lambdaValues(i);
 
-    resMM1 = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson");
+    resMM1 = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson", bufferSize);
     simDelayMM1(i) = resMM1.averageDelay;
 
-    resMD1 = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "fixed");
+    resMD1 = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "fixed", bufferSize);
     simDelayMD1(i) = resMD1.averageDelay;
 
     theoryMM1(i) = 1 / (mu - lambda);
@@ -166,18 +167,49 @@ fprintf('%-22s  %.4f    %.4f    %.4f       %.4f\n\n', 'Shared queue', ...
 
 averageDelay  = [independentResult.averageDelay;  sharedResult.averageDelay];
 delayVariance = [independentResult.delayVariance; sharedResult.delayVariance];
-systemNames   = {'Independent queues', 'Shared queue'};
+systemNames   = {'Independent', 'Shared'};
 
-% Graph 4: Average delay comparison
-figure;
+% Graph 4a: Average delay comparison
+figure('Position', [100 100 1000 500]);
+subplot(1,2,1);
 bar(averageDelay);
 set(gca, 'XTickLabel', systemNames);
 ylabel('Average packet delay W (time slots)');
 title('Average Packet Delay: Shared vs Independent Queues');
 
-% Graph 5: Delay variance comparison
-figure;
+% Graph 4b: Delay variance comparison
+subplot(1,2,2);
 bar(delayVariance);
 set(gca, 'XTickLabel', systemNames);
 ylabel('Delay variance');
 title('Delay Variance: Shared vs Independent Queues');
+
+%% Experiment 5: Effect of buffer size
+
+bufferArr = [10 20 50 100 200];
+
+lossResult = zeros(1, length(bufferArr));
+delayResult = zeros(1, length(bufferArr));
+
+lambda = 9;
+
+for i = 1:length(bufferArr)
+    bufferResult = simulateSingleQueue(lambda, mu, numSlots, warmupSlots, "poisson", bufferArr(i));
+    lossResult(i) = bufferResult.lossProb;
+    delayResult(i) = bufferResult.averageDelay;
+end
+
+% Graph 5: Packet loss, Delay
+figure;
+
+subplot(1,2,1);
+plot(bufferArr, lossResult, '-o');
+xlabel('Buffer size');
+ylabel('Packet loss probability');
+title('Effect of Buffer Size on Packet Loss');
+
+subplot(1,2,2);
+plot(bufferArr, delayResult, '-o');
+xlabel('Buffer size');
+ylabel('Average packet delay');
+title('Effect of Buffer Size on Delay');
