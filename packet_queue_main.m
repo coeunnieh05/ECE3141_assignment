@@ -31,7 +31,7 @@ end
 
 % Little's Law validation
 littleLawCheck = lambdaValues .* simDelay;
-maxLittleError = max(abs(littleLawCheck - simQueueLen));
+maxLittleError = max(abs(littleLawCheck - (simQueueLen + rhoValues)));
 fprintf('Little''s Law validation: max |L_sim - lambda*W_sim| = %.4f\n', maxLittleError);
 fprintf('Little''s Law L = lambda*W was verified across all simulated load levels.\n\n');
 
@@ -131,7 +131,7 @@ for i = 1:length(rhoValues)
     simDelayMD1(i) = resMD1.averageDelay;
 
     theoryMM1(i) = 1 / (mu - lambda);
-    theoryMD1(i) = 1 / (mu - lambda) - 1 / (2 * mu);
+    theoryMD1(i) = rhoValues(i) / (2 * mu * (1 - rhoValues(i))) + 1/mu;
 end
 
 % Graph 3: M/M/1 vs M/D/1 delay comparison
