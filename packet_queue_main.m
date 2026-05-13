@@ -5,7 +5,7 @@ close all;
 % Simulation settings
 numSlots    = 25000;
 warmupSlots = 2500;
-bufferSize  = 1000;
+bufferSize  = 10000;
 rng(1);
 
 mu = 10;
@@ -170,15 +170,14 @@ delayVariance = [independentResult.delayVariance; sharedResult.delayVariance];
 systemNames   = {'Independent', 'Shared'};
 
 % Graph 4a: Average delay comparison
-figure('Position', [100 100 1000 500]);
-subplot(1,2,1);
+figure;
 bar(averageDelay);
 set(gca, 'XTickLabel', systemNames);
 ylabel('Average packet delay W (time slots)');
 title('Average Packet Delay: Shared vs Independent Queues');
 
 % Graph 4b: Delay variance comparison
-subplot(1,2,2);
+figure;
 bar(delayVariance);
 set(gca, 'XTickLabel', systemNames);
 ylabel('Delay variance');
